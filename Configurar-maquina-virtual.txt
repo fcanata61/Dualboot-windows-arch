@@ -1,0 +1,165 @@
+#########################################################
+# Tutorial Completo: QEMU/KVM + VirtualBox no Arch Linux
+# Suporte: Kernel Normal e Customizado + Compartilhamento Host
+#########################################################
+
+⚠️ Atenção: Sempre mantenha backups e sistema atualizado antes de instalar softwares de virtualização.
+
+-------------------------------------------
+1️⃣ Preparação do sistema
+-------------------------------------------
+
+# Atualize o Arch
+sudo pacman -Syu
+
+# Instale ferramentas básicas
+sudo pacman -S base-devel linux-headers git sudo vim --noconfirm
+
+# Verifique seu kernel
+uname -r
+
+# Se estiver usando kernel customizado, instale os headers corretos:
+# Por exemplo, se custom kernel for linux-custom:
+sudo pacman -S linux-custom-headers
+
+-------------------------------------------
+2️⃣ Instalando QEMU/KVM
+-------------------------------------------
+
+# Instale pacotes principais
+sudo pacman -S qemu libvirt virt-manager edk2-ovmf bridge-utils dnsmasq --noconfirm
+
+# Habilite e inicie o serviço libvirtd
+sudo systemctl enable --now libvirtd
+
+# Adicione seu usuário ao grupo libvirt
+sudo usermod -aG libvirt $(whoami)
+
+# Verifique se CPU suporta virtualização
+egrep -c '(vmx|svm)' /proc/cpuinfo
+# Saída >0 significa suporte
+
+# Teste a instalação
+virsh list --all
+# Deve retornar lista vazia se não houver VMs
+
+# GUI para gerenciamento: Virt-Manager
+virt-manager
+
+-------------------------------------------
+3️⃣ Configurando QEMU/KVM
+-------------------------------------------
+
+# Criar diretório compartilhado no host
+mkdir -p ~/vm_share
+
+# Criar VM via virt-manager ou CLI
+virt-manager:
+# 1. Criar nova VM → ISO local
+# 2. CPU, memória, disco
+# 3. Se UEFI, selecionar OVMF
+# 4. Finalizar
+
+# CLI exemplo com diretório compartilhado usando 9p virtio
+qemu-system-x86_64 \
+ -m 4G \
+ -boot d \
+ -cdrom /caminho/para/iso.iso \
+ -hda vm.img \
+ -enable-kvm \
+ -fsdev local,id=fs1,path=/home/usuario/vm_share,security_model=passthrough \
+ -device virtio-9p-pci,fsdev=fs1,mount_tag=hostshare
+
+# Dentro da VM Linux, montar:
+sudo mkdir -p /mnt/host
+sudo mount -t 9p -o trans=virtio hostshare /mnt/host
+
+# Agora /mnt/host é o diretório compartilhado com o host.
+
+-------------------------------------------
+4️⃣ Instalando VirtualBox
+-------------------------------------------
+
+# Pacotes para kernel normal:
+sudo pacman -S virtualbox virtualbox-host-modules-arch --noconfirm
+
+# Para kernel customizado, use o módulo correto:
+sudo pacman -S virtualbox-host-dkms linux-custom-headers
+
+# Compile DKMS para kernel customizado:
+sudo dkms install vboxhost/$(VBoxManage --version)
+
+# Carregar módulos
+sudo modprobe vboxdrv
+sudo modprobe vboxnetflt
+sudo modprobe vboxnetadp
+
+# Adicione seu usuário ao grupo vboxusers
+sudo usermod -aG vboxusers $(whoami)
+
+# Inicie VirtualBox GUI
+VirtualBox
+
+-------------------------------------------
+5️⃣ Compartilhamento de diretório no VirtualBox
+-------------------------------------------
+
+# Criar diretório no host
+mkdir -p ~/vbox_share
+
+# No VirtualBox GUI:
+# 1. Selecione VM → Configurações → Pastas Compartilhadas
+# 2. Clique "+" → Escolha ~/vbox_share
+# 3. Marque "Automount" e "Make Permanent"
+# 4. Dentro da VM Linux:
+sudo mount -t vboxsf vbox_share /mnt/vbox_share
+# /mnt/vbox_share agora acessa o diretório host
+
+# CLI alternativa:
+VBoxManage sharedfolder add "NomeDaVM" --name "vbox_share" --hostpath /home/usuario/vbox_share --automount
+
+-------------------------------------------
+6️⃣ Testando VirtualBox
+-------------------------------------------
+
+# Criar VM via CLI:
+VBoxManage createvm --name "ArchVM" --register
+VBoxManage modifyvm "ArchVM" --memory 2048 --cpus 2
+VBoxManage createhd --filename ~/VirtualBox\ VMs/ArchVM.vdi --size 20000
+VBoxManage storagectl "ArchVM" --name "SATA" --add sata --controller IntelAhci
+VBoxManage storageattach "ArchVM" --storagectl "SATA" --port 0 --device 0 --type hdd --medium ~/VirtualBox\ VMs/ArchVM.vdi
+VBoxManage storageattach "ArchVM" --storagectl "SATA" --port 1 --device 0 --type dvddrive --medium /caminho/para/iso.iso
+VBoxManage startvm "ArchVM"
+
+-------------------------------------------
+7️⃣ Dicas avançadas
+-------------------------------------------
+
+# KVM (QEMU) é mais performático no Linux nativo
+# VirtualBox é mais fácil para multiplataforma
+# Para kernel customizado:
+# - Instale headers correspondentes
+# - Use DKMS se necessário
+# - Recompile módulos se mudar de kernel
+# - Verifique lsmod | grep vbox e lsmod | grep kvm
+
+# Rede:
+# - VirtualBox: NAT, Host-Only, Bridge
+# - QEMU/KVM: NAT (padrão), Bridge (via brctl ou libvirt)
+
+# Snapshots:
+# - QEMU/KVM: via virt-manager ou qemu-img snapshot
+# - VirtualBox: via GUI ou VBoxManage snapshot
+
+# UEFI:
+# - QEMU/KVM: edk2-ovmf
+# - VirtualBox: Ativar EFI na VM
+
+-------------------------------------------
+✅ Pronto!
+-------------------------------------------
+
+Você agora tem **QEMU/KVM e VirtualBox instalados e configurados** no Arch Linux, com:
+- Kernel normal e customizado
+- Diretórios compartilhados entre host e VM
+- Exemplos de CLI e GUI
