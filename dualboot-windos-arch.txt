@@ -1,0 +1,251 @@
+###########################################
+# Guia Completo: Dual Boot Windows + Arch #
+###########################################
+
+⚠️ Atenção: Sempre faça backup antes de mexer em partições.
+
+-------------------------------------------
+1️⃣ Preparação
+-------------------------------------------
+
+1. Boot pelo pendrive do Arch Linux (Live USB).
+2. Conecte à internet:
+   ping -c 3 archlinux.org
+3. (Opcional) Atualize pacotes do live environment:
+   pacman -Sy
+
+-------------------------------------------
+2️⃣ Identificar discos e partições
+-------------------------------------------
+
+lsblk
+fdisk -l
+
+Exemplo:
+  /dev/sda
+    ├─ sda1  EFI  500M  FAT32
+    ├─ sda2  Windows  200G  NTFS
+    └─ sda3  Espaço livre
+
+- Anote a partição do Windows (/dev/sda2) e o espaço livre.
+
+-------------------------------------------
+3️⃣ Redimensionar a partição do Windows
+-------------------------------------------
+
+- Instalar ferramentas NTFS:
+  pacman -S ntfs-3g gparted
+
+- Checar integridade da partição:
+  ntfsfix /dev/sda2
+
+- Reduzir a partição (exemplo: 50 GB para Arch):
+  ntfsresize --size 150G /dev/sda2
+
+- Ajustar tabela de partições:
+  fdisk /dev/sda
+    - Delete sda2 temporariamente
+    - Recrie a partição NTFS com novo tamanho
+    - Mantenha mesmo início da partição
+    - Salve (w)
+
+- Reinicie se necessário e cheque Windows boot.
+
+-------------------------------------------
+4️⃣ Criar partições para Arch
+-------------------------------------------
+
+Usando cfdisk ou fdisk:
+
+cfdisk /dev/sda
+
+No espaço não alocado, criar:
+1. / → raiz ext4 (20–50 GB ou mais)
+2. Swap → opcional (2–8 GB)
+3. /home → opcional (restante do espaço)
+
+- Não mexer na partição EFI existente (sda1).
+
+Formatar:
+mkfs.ext4 /dev/sdaX       # root
+mkswap /dev/sdaY          # swap
+swapon /dev/sdaY
+mount /dev/sdaX /mnt
+
+Se UEFI:
+mount /dev/sda1 /mnt/boot   # não formatar
+
+-------------------------------------------
+5️⃣ Instalar Arch
+-------------------------------------------
+
+Pacotes base:
+pacstrap /mnt base linux linux-firmware vim sudo
+
+Gerar fstab:
+genfstab -U /mnt >> /mnt/etc/fstab
+
+Chroot:
+arch-chroot /mnt
+
+Configurações básicas:
+ln -sf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
+hwclock --systohc
+echo "meuhostname" > /etc/hostname
+
+Locale:
+echo "pt_BR.UTF-8 UTF-8" >> /etc/locale.gen
+locale-gen
+echo "LANG=pt_BR.UTF-8" > /etc/locale.conf
+
+Senha root:
+passwd
+
+Usuário normal:
+useradd -m -G wheel seuusuario
+passwd seuusuario
+
+-------------------------------------------
+6️⃣ Instalar GRUB para dual boot
+-------------------------------------------
+
+Pacotes:
+pacman -S grub efibootmgr os-prober   # UEFI
+pacman -S grub os-prober              # BIOS/Legacy
+
+Se UEFI:
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+os-prober
+grub-mkconfig -o /boot/grub/grub.cfg
+
+Se BIOS/Legacy:
+grub-install /dev/sda
+os-prober
+grub-mkconfig -o /boot/grub/grub.cfg
+
+- O os-prober detecta o Windows automaticamente.
+
+-------------------------------------------
+7️⃣ Finalizar
+-------------------------------------------
+
+exit
+umount -R /mnt
+reboot
+
+- Ao reiniciar, GRUB mostrará:
+  - Arch Linux
+  - Windows
+
+-------------------------------------------
+8️⃣ Dicas importantes
+-------------------------------------------
+
+- Nunca formate a partição do Windows.
+- Backup antes de mexer em partições.
+- Fast Startup do Windows deve estar desativado.
+- Se usar UEFI, o Windows também deve estar em UEFI.
+- Use efibootmgr para definir ordem de boot se necessário.
+- Swap é opcional, mas recomendado para hibernação/standby.
+
+-------------------------------------------
+✅ Pronto!
+-------------------------------------------
+
+Agora você tem dual boot Windows + Arch Linux funcionando, com GRUB gerenciando os dois sistemas.
+
+----////////////////////////////////////////=====================
+
+  ###########################################
+# Dual Boot Windows + Arch Linux (Copy&Paste)
+###########################################
+
+# 1️⃣ Preparação do Live Environment
+ping -c 3 archlinux.org   # testar internet
+pacman -Sy ntfs-3g gparted sudo vim --noconfirm
+
+# 2️⃣ Identificar discos
+lsblk
+fdisk -l
+# Anote:
+# - Partição EFI (ex: /dev/sda1)
+# - Partição Windows (ex: /dev/sda2)
+# - Espaço livre ou total do disco
+
+# 3️⃣ Redimensionar Windows (exemplo: liberar 50GB)
+ntfsfix /dev/sda2
+# Diminuir NTFS para 150GB
+ntfsresize --size 150G /dev/sda2
+# Ajustar tabela de partições mantendo início da partição
+fdisk /dev/sda
+# a) delete sda2 temporariamente
+# b) recrie NTFS com novo tamanho, mesmo início
+# c) Salve (w)
+# d) Reinicie se necessário e cheque Windows boot
+
+# 4️⃣ Criar partições Arch
+cfdisk /dev/sda
+# Crie no espaço livre:
+# - / (root) ext4 20–50GB
+# - swap 2–8GB (opcional)
+# - /home ext4 (restante) opcional
+# Não mexer na EFI existente
+
+# Formatar
+mkfs.ext4 /dev/sdaX       # root
+mkswap /dev/sdaY          # swap
+swapon /dev/sdaY
+mount /dev/sdaX /mnt
+# Montar EFI se UEFI
+mount /dev/sda1 /mnt/boot
+
+# 5️⃣ Instalar Arch
+pacstrap /mnt base linux linux-firmware vim sudo
+genfstab -U /mnt >> /mnt/etc/fstab
+arch-chroot /mnt
+
+# Configurações básicas
+ln -sf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
+hwclock --systohc
+echo "meuhostname" > /etc/hostname
+
+# Locale
+echo "pt_BR.UTF-8 UTF-8" >> /etc/locale.gen
+locale-gen
+echo "LANG=pt_BR.UTF-8" > /etc/locale.conf
+
+# Usuário e senha
+passwd                    # root
+useradd -m -G wheel user
+passwd user
+
+# 6️⃣ Instalar GRUB
+pacman -S grub efibootmgr os-prober --noconfirm  # UEFI
+# ou BIOS/Legacy:
+# pacman -S grub os-prober --noconfirm
+
+# UEFI
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+os-prober
+grub-mkconfig -o /boot/grub/grub.cfg
+
+# BIOS/Legacy
+# grub-install /dev/sda
+# os-prober
+# grub-mkconfig -o /boot/grub/grub.cfg
+
+# 7️⃣ Finalizar
+exit
+umount -R /mnt
+reboot
+
+# Após reiniciar, GRUB exibirá:
+# - Arch Linux
+# - Windows
+
+# 8️⃣ Dicas
+# - Não formate a partição do Windows
+# - Fast Startup do Windows deve estar desativado
+# - Backup sempre
+# - Use efibootmgr para ajustar ordem de boot se necessário
+# - Swap opcional, mas recomendado
