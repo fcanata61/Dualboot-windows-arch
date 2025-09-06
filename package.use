@@ -1,0 +1,62 @@
+###############################################################################
+# package.use - Gentoo Linux minimalista e otimizado
+# Autor: Gerado por ChatGPT
+# Objetivo: Desktop leve, funcional e enxuto
+###############################################################################
+
+# -------------------------
+# Navegador
+# -------------------------
+www-client/firefox ssl dbus gtk system-icu
+
+# -------------------------
+# Terminal
+# -------------------------
+x11-terms/kitty
+
+# -------------------------
+# Gerenciador de Janelas
+# -------------------------
+x11-wm/i3
+
+# -------------------------
+# Servidor gráfico Xorg
+# -------------------------
+x11-base/xorg-drivers dri opengl
+x11-base/xorg-server evdev udev
+
+# -------------------------
+# Multimídia e áudio
+# -------------------------
+media-sound/pulseaudio
+media-video/mpv
+media-libs/alsa-lib
+media-sound/pavucontrol
+
+# -------------------------
+# Rede e downloads
+# -------------------------
+net-misc/curl ssl
+net-misc/wget ssl
+net-misc/openssh
+
+# -------------------------
+# Utilitários básicos
+# -------------------------
+sys-apps/htop
+sys-apps/neofetch
+app-editors/vim
+app-admin/sudo
+app-misc/tmux
+sys-fs/dosfstools  # se usar USB ou partições FAT
+sys-fs/e2fsprogs   # se usar ext4
+
+# -------------------------
+# Fontes básicas
+# -------------------------
+x11-fonts/ttf-dejavu
+x11-fonts/gnu-free-fonts
+
+###############################################################################
+# Fim do package.use
+###############################################################################
